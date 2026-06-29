@@ -1,0 +1,13 @@
+Walkthrough video URL
+=====================
+
+
+
+Suggested video content (2–4 minutes):
+1. Open live URL and sign in as nasira@gmail.com
+2. Create a document and show rich-text formatting (bold, underline, heading)
+3. Import a .txt or .md file
+4. Share the document with Jamil
+5. Sign out, sign in as jamil@gmail.com
+6. Show document under "Shared with me" and edit it
+7. Refresh to show persistence

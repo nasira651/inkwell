@@ -1,4 +1,6 @@
-import type { DocumentDetail, DocumentSummary } from "@/lib/documents/types";
+import type { DocumentDetail, DashboardDocuments } from "@/lib/documents/types";
+import type { ShareWithUserDTO } from "@/lib/shares/types";
+import type { SessionUser, UserDTO } from "@/lib/users/types";
 
 export class DocumentsApiError extends Error {
   constructor(
@@ -13,8 +15,9 @@ export class DocumentsApiError extends Error {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
+    credentials: "same-origin",
     headers: {
-      "Content-Type": "application/json",
+      ...(init?.body !== undefined ? { "Content-Type": "application/json" } : {}),
       ...init?.headers,
     },
   });
@@ -28,17 +31,43 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return data;
 }
 
-export const documentsApi = {
-  list(): Promise<{ documents: DocumentSummary[] }> {
-    return request("/api/documents");
+export const authApi = {
+  login(email: string): Promise<{ user: SessionUser }> {
+    return request("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
   },
 
-  get(id: string): Promise<{ document: DocumentDetail }> {
+  logout(): Promise<{ ok: true }> {
+    return request("/api/auth/logout", { method: "POST" });
+  },
+
+  session(): Promise<{ user: SessionUser | null }> {
+    return request("/api/auth/session");
+  },
+};
+
+export const usersApi = {
+  list(): Promise<{ users: UserDTO[] }> {
+    return request("/api/users");
+  },
+};
+
+export const documentsApi = {
+  dashboard(): Promise<DashboardDocuments> {
+    return request("/api/documents/dashboard");
+  },
+
+  get(id: string): Promise<{ document: DocumentDetail; isOwner: boolean; ownerName?: string }> {
     return request(`/api/documents/${id}`);
   },
 
-  create(): Promise<{ document: DocumentDetail }> {
-    return request("/api/documents", { method: "POST" });
+  create(payload?: { title?: string; content?: DocumentDetail["content"] }) {
+    return request<{ document: DocumentDetail }>("/api/documents", {
+      method: "POST",
+      body: JSON.stringify(payload ?? {}),
+    });
   },
 
   update(id: string, payload: { title?: string; content?: DocumentDetail["content"] }) {
@@ -50,5 +79,16 @@ export const documentsApi = {
 
   remove(id: string) {
     return request<{ ok: true }>(`/api/documents/${id}`, { method: "DELETE" });
+  },
+
+  getShares(documentId: string): Promise<{ shares: ShareWithUserDTO[] }> {
+    return request(`/api/documents/${documentId}/shares`);
+  },
+
+  share(documentId: string, userId: string): Promise<{ share: ShareWithUserDTO }> {
+    return request(`/api/documents/${documentId}/shares`, {
+      method: "POST",
+      body: JSON.stringify({ userId }),
+    });
   },
 };

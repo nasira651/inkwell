@@ -76,6 +76,10 @@ body {
   font-style: italic;
 }
 
+.tiptap-surface u {
+  text-decoration: underline;
+}
+
 .tiptap-surface p.is-editor-empty:first-child::before {
   color: var(--ink-muted);
   content: attr(data-placeholder);

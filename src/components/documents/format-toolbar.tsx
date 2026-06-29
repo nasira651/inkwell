@@ -57,6 +57,11 @@ export function FormatToolbar({ editor }: FormatToolbarProps) {
         onClick={() => run(() => editor.chain().focus().toggleItalic().run())}
       />
       <ToolbarButton
+        label="U"
+        active={editor.isActive("underline")}
+        onClick={() => run(() => editor.chain().focus().toggleUnderline().run())}
+      />
+      <ToolbarButton
         label="H1"
         active={editor.isActive("heading", { level: 1 })}
         onClick={() => run(() => editor.chain().focus().toggleHeading({ level: 1 }).run())}

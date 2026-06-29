@@ -1,74 +1,84 @@
 import { NextResponse } from "next/server";
 
+import { ApiError, parseJsonBody } from "@/lib/api/errors";
+import { withSession } from "@/lib/api/middleware";
+import { documentPatchSchema } from "@/lib/api/schemas";
+import { assertDocumentAccess, assertObjectId, validate } from "@/lib/api/validation";
 import { connectDB } from "@/db/connect";
 import { DocumentModel } from "@/db/models/Document";
-import { ApiError, handleApiError, parseJsonBody } from "@/lib/api/errors";
-import { documentPatchSchema } from "@/lib/api/schemas";
-import { assertObjectId, validate } from "@/lib/api/validation";
+import { DocumentShareModel } from "@/db/models/DocumentShare";
+import { resolveDocumentAccess } from "@/lib/documents/access";
 import { normalizeDocumentContent } from "@/lib/documents/content";
-import { toDocumentDetail } from "@/lib/documents/serialize";
+import { resolveOwnerName, toDocumentDetail } from "@/lib/documents/serialize";
 
-type RouteContext = {
-  params: Promise<{ id: string }>;
-};
+type RouteContext = { params: Promise<{ id: string }> };
 
-export async function GET(_request: Request, context: RouteContext) {
-  try {
-    const { id } = await context.params;
-    assertObjectId(id);
+export const GET = withSession<RouteContext>(async (_request, context, user) => {
+  const { id } = await context.params;
+  assertObjectId(id);
 
-    await connectDB();
-    const document = await DocumentModel.findById(id);
-    if (!document) {
-      throw new ApiError(404, "Document not found");
-    }
+  const accessResult = await resolveDocumentAccess(id, user.id);
+  assertDocumentAccess(accessResult);
 
-    return NextResponse.json({ document: toDocumentDetail(document) });
-  } catch (error) {
-    return handleApiError(error);
+  const doc = await DocumentModel.findById(accessResult.access.doc._id)
+    .populate("ownerId", "name")
+    .populate("updatedBy", "name");
+  if (!doc) {
+    throw new ApiError(404, "Document not found");
   }
-}
 
-export async function PATCH(request: Request, context: RouteContext) {
-  try {
-    const { id } = await context.params;
-    assertObjectId(id);
+  return NextResponse.json({
+    document: toDocumentDetail(doc),
+    isOwner: accessResult.access.isOwner,
+    ownerName: resolveOwnerName(doc),
+  });
+});
 
-    const body = await parseJsonBody(request);
-    const patch = validate(documentPatchSchema, body);
+export const PATCH = withSession<RouteContext>(async (request, context, user) => {
+  const { id } = await context.params;
+  assertObjectId(id);
 
-    const update: {
-      title?: string;
-      content?: ReturnType<typeof normalizeDocumentContent>;
-    } = {};
-    if (patch.title !== undefined) update.title = patch.title;
-    if (patch.content !== undefined) update.content = normalizeDocumentContent(patch.content);
+  const body = await parseJsonBody(request);
+  const patch = validate(documentPatchSchema, body);
 
-    await connectDB();
-    const updated = await DocumentModel.findByIdAndUpdate(id, update, { returnDocument: "after" });
-    if (!updated) {
-      throw new ApiError(404, "Document not found");
-    }
+  const accessResult = await resolveDocumentAccess(id, user.id);
+  assertDocumentAccess(accessResult);
 
-    return NextResponse.json({ document: toDocumentDetail(updated) });
-  } catch (error) {
-    return handleApiError(error);
+  const update: {
+    title?: string;
+    content?: ReturnType<typeof normalizeDocumentContent>;
+    updatedBy: string;
+  } = { updatedBy: user.id };
+
+  if (patch.title !== undefined) update.title = patch.title;
+  if (patch.content !== undefined) update.content = normalizeDocumentContent(patch.content);
+
+  await connectDB();
+  const updated = await DocumentModel.findByIdAndUpdate(
+    accessResult.access.doc._id,
+    update,
+    { returnDocument: "after" },
+  );
+  if (!updated) {
+    throw new ApiError(404, "Document not found");
   }
-}
 
-export async function DELETE(_request: Request, context: RouteContext) {
-  try {
-    const { id } = await context.params;
-    assertObjectId(id);
+  return NextResponse.json({ document: toDocumentDetail(updated) });
+});
 
-    await connectDB();
-    const deleted = await DocumentModel.findByIdAndDelete(id);
-    if (!deleted) {
-      throw new ApiError(404, "Document not found");
-    }
+export const DELETE = withSession<RouteContext>(async (_request, context, user) => {
+  const { id } = await context.params;
+  assertObjectId(id);
 
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    return handleApiError(error);
+  const accessResult = await resolveDocumentAccess(id, user.id);
+  assertDocumentAccess(accessResult, { requireOwner: true });
+
+  await connectDB();
+  await DocumentShareModel.deleteMany({ documentId: accessResult.access.doc._id });
+  const deleted = await DocumentModel.findByIdAndDelete(accessResult.access.doc._id);
+  if (!deleted) {
+    throw new ApiError(404, "Document not found");
   }
-}
+
+  return NextResponse.json({ ok: true });
+});

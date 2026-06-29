@@ -14,6 +14,17 @@ const documentSchema = new Schema(
       type: Schema.Types.Mixed,
       default: () => EMPTY_DOCUMENT_CONTENT,
     },
+    ownerId: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+    updatedBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
   },
   { timestamps: true },
 );

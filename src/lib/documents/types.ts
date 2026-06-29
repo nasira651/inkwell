@@ -5,8 +5,15 @@ export type DocumentSummary = {
   title: string;
   updatedAt: string;
   createdAt: string;
+  isOwner?: boolean;
+  ownerName?: string;
 };
 
 export type DocumentDetail = DocumentSummary & {
   content: JSONContent;
+};
+
+export type DashboardDocuments = {
+  owned: DocumentSummary[];
+  shared: DocumentSummary[];
 };

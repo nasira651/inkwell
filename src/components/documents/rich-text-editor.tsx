@@ -2,6 +2,7 @@
 
 import type { JSONContent } from "@tiptap/core";
 import Placeholder from "@tiptap/extension-placeholder";
+import Underline from "@tiptap/extension-underline";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect } from "react";
@@ -21,6 +22,7 @@ export function RichTextEditor({ content, onChange }: RichTextEditorProps) {
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
       }),
+      Underline,
       Placeholder.configure({
         placeholder: "Start writing…",
       }),
